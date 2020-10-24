@@ -153,7 +153,11 @@ apply the restart functions to them."
 
 (defun restart-bind-transform-binding (binding)
   "Transforms the RESTART-BIND binding into a MAKE-RESTART form."
-  (destructuring-bind (name function . arguments) binding
+  (destructuring-bind (name function
+                       &rest arguments
+                       &key report-function test-function interactive-function)
+      binding
+    (declare (ignore report-function test-function interactive-function))
     `(make-restart :name ',name :function ,function ,@arguments)))
 
 (defmacro restart-bind (bindings &body body)
