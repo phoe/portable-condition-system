@@ -22,14 +22,18 @@ form in which the stream, condition, and argument variables are available for
 use inside the method body."
   (check-type name keyword)
   (let ((command-var (gensym "COMMAND"))
-        (arguments-var (gensym "ARGUMENTS")))
+        (arguments-var (gensym "ARGUMENTS"))
+        (stream-var (gensym "STREAM"))
+        (condition-var (gensym "CONDITION-VAR"))
     (multiple-value-bind (real-body declarations documentation)
         (parse-body body :documentation t)
       `(defmethod run-debugger-command
-           ((,command-var (eql ,name)) ,stream ,condition &rest ,arguments-var)
+           ((,command-var (eql ,name)) ,stream-var ,condition-var &rest ,arguments-var)
          ,@(when documentation `(,documentation))
-         ,@declarations
-         (destructuring-bind ,arguments ,arguments-var ,@real-body)))))
+         (destructuring-bind (,stream ,condition ,@arguments)
+             (list* ,stream-var ,condition-var ,arguments-var)
+           ,@declarations
+           ,@real-body)))))
 
 ;;; Debugger commands
 
