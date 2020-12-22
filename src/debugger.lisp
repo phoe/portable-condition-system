@@ -10,11 +10,25 @@ and printing output to the provided stream. The condition object the debugger
 was entered with and optional command arguments are available for use within
 the command itself."))
 
+(defvar *skip-debugger-prefix* nil
+  "Whether or not to avoid printing the debugger line prefix when
+  executing a command.")
+
+(defmethod run-debugger-command :around (command stream condition &rest arguments)
+  "Prefixes each line of output with semicolons unless told not to."
+  (cond
+    (*skip-debugger-prefix*
+     (call-next-method))
+    (t
+     (fresh-line)
+     (pprint-logical-block (stream nil :per-line-prefix ";; ")
+       (apply #'call-next-method command stream condition arguments)))))
+
 (defmethod run-debugger-command (command stream condition &rest arguments)
   "Informs the user that the provided debugger command was not recognized."
   (declare (ignore arguments))
-  (format stream "~&;; ~S is not a recognized command.
-;; Type :HELP for available commands.~%" command))
+  (format stream "~&~S is not a recognized command.
+Type :HELP for available commands." command))
 
 (defmacro define-command (name (stream condition &rest arguments) &body body)
   "Accepts a command name (which should be a keyword) and generates a DEFMETHOD
@@ -41,6 +55,13 @@ use inside the method body."
   "A variable holding the current debugger level, rebound dynamically on each
 debugger entry.")
 
+(defmethod run-debugger-command :around
+    ((command (eql :eval)) stream condition &rest arguments)
+  "Prevents eval commands from having semicolons printed before them."
+  (declare (ignore stream condition arguments))
+  (let ((*skip-debugger-prefix* t))
+    (call-next-method)))
+
 (define-command :eval (stream condition &optional form)
   "Evaluates a form. The form may be provided as an optional argument;
 otherwise, it read from the provided stream."
@@ -55,13 +76,10 @@ otherwise, it read from the provided stream."
 (define-command :report (stream condition &optional (level *debug-level*))
   "Informs the user that the debugger has been entered and reports the condition
 object the debugger was entered with."
-  (format stream "~&;; Debugger level ~D entered on ~S:~%"
+  (format stream "~&Debugger level ~D entered on ~_~S"
           level (type-of condition))
-  (handler-case (let* ((report (princ-to-string condition))
-                       (lines (split-sequence #\Newline report
-                                              :remove-empty-subseqs t)))
-                  (format stream "~&~{;; ~A~%~}" lines))
-    (error () (format stream "~&;; #<error while reporting condition>~%"))))
+  (handler-case (format stream "~&~A" condition)
+    (error () (format stream "~&#<error while reporting condition>"))))
 
 (define-command :condition (stream condition)
   "Returns the condition object that the debugger was entered with."
@@ -75,17 +93,20 @@ object the debugger was entered with."
 (define-command :restarts (stream condition)
   "Prints a list of available restarts."
   (let ((restarts (compute-restarts condition)))
+    (fresh-line stream)
     (cond (restarts
-           (format stream "~&;; Available restarts:~%")
+           (format stream "Available restarts:")
            (loop with max-name-length = (restart-max-name-length restarts)
                  for i from 0
                  for restart in restarts
-                 for report = (handler-case (princ-to-string restart)
-                                (error () "#<error while reporting restart>"))
                  for restart-name = (or (restart-name restart) "")
-                 do (format stream ";; ~2,' D: [~vA] ~A~%"
-                            i max-name-length restart-name report)))
-          (t (format stream "~&;; No available restarts.~%")))))
+                 do (format stream "~&~2,' D: [~vA] "
+                            i max-name-length restart-name)
+                    (handler-case
+                        (format stream "~@<~A~:>" restart)
+                      (error ()
+                        (format stream "#<error while reporting restart>")))))
+          (t (format stream "~&No available restarts.")))))
 
 (define-command :restart (stream condition &optional n)
   "Invokes a particular restart."
@@ -93,7 +114,7 @@ object the debugger was entered with."
          (restart (nth n (compute-restarts condition))))
     (if restart
         (invoke-restart-interactively restart)
-        (format stream "~&;; There is no restart with number ~D.~%" n))))
+        (format stream "~&There is no restart with number ~D." n))))
 
 (defun debugger-invoke-restart (name stream condition)
   "Finds and invokes a restart with the given name; if no such restart is
@@ -101,7 +122,7 @@ available, informs the user about that fact."
   (let ((restart (find-restart name condition)))
     (if restart
         (invoke-restart-interactively restart)
-        (format stream "~&;; There is no active ~A restart.~%" name))))
+        (format stream "~&;; There is no active ~A restart." name))))
 
 (define-command :abort (stream condition)
   "Finds and invokes the ABORT restart; if no such restart is available, informs
@@ -129,26 +150,24 @@ was entered with and a stream that the hook should print to.")
 (define-command :help (stream condition)
   "Prints the debugger help."
   (format stream "~&~
-;; This is the standard debugger of the Portable Condition System.
-;; The debugger read-eval-print loop supports the standard REPL variables:
-;;   *   **   ***   +   ++   +++   /   //   ///   -
-;;
-;; Available debugger commands:
-;;  :HELP              Show this text.
-;;  :EVAL <form>       Evaluate a form typed after the :EVAL command.
-;;  :REPORT            Report the condition the debugger was invoked with.
-;;  :CONDITION         Return the condition the debugger was invoked with.
-;;  :RESTARTS          Print available restarts.
-;;  :RESTART <n>, <n>  Invoke a restart with the given number.")
+This is the standard debugger of the Portable Condition System.
+The debugger read-eval-print loop supports the standard REPL variables:
+  *   **   ***   +   ++   +++   /   //   ///   -
+
+Available debugger commands:
+ :HELP              Show this text.
+ :EVAL <form>       Evaluate a form typed after the :EVAL command.
+ :REPORT            Report the condition the debugger was invoked with.
+ :CONDITION         Return the condition the debugger was invoked with.
+ :RESTARTS          Print available restarts.
+ :RESTART <n>, <n>  Invoke a restart with the given number.")
   (when (find-restart 'abort condition)
-    (format stream "~&;;  :ABORT, :Q         Invoke an ABORT restart.~%"))
+    (format stream "~& :ABORT, :Q         Invoke an ABORT restart.~%"))
   (when (find-restart 'continue condition)
-    (format stream "~&;;  :CONTINUE, :C      Invoke a CONTINUE restart.~%"))
+    (format stream "~& :CONTINUE, :C      Invoke a CONTINUE restart.~%"))
   (dolist (hook *help-hooks*)
     (funcall hook condition stream))
-  (format stream "~&~
-;;
-;; Any non-keyword non-integer form is evaluated.~%"))
+  (format stream "~%~%Any non-keyword non-integer form is evaluated.~%"))
 
 ;;; Debugger implementation
 
