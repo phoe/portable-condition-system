@@ -157,7 +157,7 @@ treated as debugger commands and integers are treated as arguments to
     (multiple-value-bind (values actual-thing)
         (typecase thing
           (keyword (run-debugger-command thing stream condition))
-          (integer (run-debugger-command :restart stream condition thing))
+          (unsigned-byte (run-debugger-command :restart stream condition thing))
           (t (run-debugger-command :eval stream condition thing)))
       (unless actual-thing (setf actual-thing thing))
       (prog1 values
