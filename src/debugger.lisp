@@ -20,9 +20,21 @@ the command itself."))
     (*skip-debugger-prefix*
      (call-next-method))
     (t
-     (fresh-line)
-     (pprint-logical-block (stream nil :per-line-prefix ";; ")
-       (apply #'call-next-method command stream condition arguments)))))
+     (let ((stream-out stream))
+       (fresh-line stream)
+       (pprint-logical-block (stream-out nil :per-line-prefix ";; ")
+         ;; Return the value from the next method because
+         ;; PPRINT-LOGICAL-BLOCK returns nil
+         (return-from run-debugger-command
+           (prog1
+               (apply #'call-next-method
+                      command
+                      ;; Pass a two-way stream so that e.g. :RESTART can read
+                      ;; from it
+                      (make-two-way-stream stream stream-out)
+                      condition
+                      arguments)
+             (fresh-line stream-out))))))))
 
 (defmethod run-debugger-command (command stream condition &rest arguments)
   "Informs the user that the provided debugger command was not recognized."
@@ -72,10 +84,10 @@ otherwise, it read from the provided stream."
 (define-command :report (stream condition &optional (level *debug-level*))
   "Informs the user that the debugger has been entered and reports the condition
 object the debugger was entered with."
-  (format stream "~&Debugger level ~D entered on ~_~S"
+  (format stream "Debugger level ~D entered on ~_~S:~%"
           level (type-of condition))
-  (handler-case (format stream "~&~A" condition)
-    (error () (format stream "~&#<error while reporting condition>"))))
+  (handler-case (format stream "~A" condition)
+    (error () (format stream "#<error while reporting condition>"))))
 
 (define-command :condition (stream condition)
   "Returns the condition object that the debugger was entered with."
@@ -89,20 +101,19 @@ object the debugger was entered with."
 (define-command :restarts (stream condition)
   "Prints a list of available restarts."
   (let ((restarts (compute-restarts condition)))
-    (fresh-line stream)
     (cond (restarts
            (format stream "Available restarts:")
            (loop with max-name-length = (restart-max-name-length restarts)
                  for i from 0
                  for restart in restarts
                  for restart-name = (or (restart-name restart) "")
-                 do (format stream "~&~2,' D: [~vA] "
+                 do (format stream "~%~2,' D: [~vA] "
                             i max-name-length restart-name)
                     (handler-case
                         (format stream "~@<~A~:>" restart)
                       (error ()
                         (format stream "#<error while reporting restart>")))))
-          (t (format stream "~&No available restarts.")))))
+          (t (format stream "No available restarts.")))))
 
 (define-command :restart (stream condition &optional n)
   "Invokes a particular restart."
@@ -110,7 +121,7 @@ object the debugger was entered with."
          (restart (nth n (compute-restarts condition))))
     (if restart
         (invoke-restart-interactively restart)
-        (format stream "~&There is no restart with number ~D." n))))
+        (format stream "There is no restart with number ~D." n))))
 
 (defun debugger-invoke-restart (name stream condition)
   "Finds and invokes a restart with the given name; if no such restart is
@@ -118,7 +129,7 @@ available, informs the user about that fact."
   (let ((restart (find-restart name condition)))
     (if restart
         (invoke-restart-interactively restart)
-        (format stream "~&;; There is no active ~A restart." name))))
+        (format stream "There is no active ~A restart." name))))
 
 (define-command :abort (stream condition)
   "Finds and invokes the ABORT restart; if no such restart is available, informs
@@ -145,7 +156,7 @@ was entered with and a stream that the hook should print to.")
 
 (define-command :help (stream condition)
   "Prints the debugger help."
-  (format stream "~&~
+  (format stream "~
 This is the standard debugger of the Portable Condition System.
 The debugger read-eval-print loop supports the standard REPL variables:
   *   **   ***   +   ++   +++   /   //   ///   -
@@ -158,12 +169,12 @@ Available debugger commands:
  :RESTARTS          Print available restarts.
  :RESTART <n>, <n>  Invoke a restart with the given number.")
   (when (find-restart 'abort condition)
-    (format stream "~& :ABORT, :Q         Invoke an ABORT restart.~%"))
+    (format stream "~% :ABORT, :Q         Invoke an ABORT restart."))
   (when (find-restart 'continue condition)
-    (format stream "~& :CONTINUE, :C      Invoke a CONTINUE restart.~%"))
+    (format stream "~% :CONTINUE, :C      Invoke a CONTINUE restart."))
   (dolist (hook *help-hooks*)
     (funcall hook condition stream))
-  (format stream "~%~%Any non-keyword non-integer form is evaluated.~%"))
+  (format stream "~%~%Any non-keyword non-integer form is evaluated."))
 
 ;;; Debugger implementation
 
@@ -172,6 +183,7 @@ Available debugger commands:
 treated as debugger commands and integers are treated as arguments to
 :RESTART."
   (format stream "~&[~D] Debug> "*debug-level*)
+  (finish-output stream)
   (let* ((thing (read stream)))
     (multiple-value-bind (values actual-thing)
         (typecase thing
