@@ -143,7 +143,7 @@
   ";; This is the standard debugger of the Portable Condition System.
 ;; The debugger read-eval-print loop supports the standard REPL variables:
 ;;   *   **   ***   +   ++   +++   /   //   ///   -
-;;
+;; 
 ;; Available debugger commands:
 ;;  :HELP              Show this text.
 ;;  :EVAL <form>       Evaluate a form typed after the :EVAL command.
@@ -151,7 +151,7 @@
 ;;  :CONDITION         Return the condition the debugger was invoked with.
 ;;  :RESTARTS          Print available restarts.
 ;;  :RESTART <n>, <n>  Invoke a restart with the given number.
-;;
+;; 
 ;; Any non-keyword non-integer form is evaluated.
 ")
 
@@ -162,7 +162,7 @@
   ";; This is the standard debugger of the Portable Condition System.
 ;; The debugger read-eval-print loop supports the standard REPL variables:
 ;;   *   **   ***   +   ++   +++   /   //   ///   -
-;;
+;; 
 ;; Available debugger commands:
 ;;  :HELP              Show this text.
 ;;  :EVAL <form>       Evaluate a form typed after the :EVAL command.
@@ -172,7 +172,7 @@
 ;;  :RESTART <n>, <n>  Invoke a restart with the given number.
 ;;  :ABORT, :Q         Invoke an ABORT restart.
 ;;  :CONTINUE, :C      Invoke a CONTINUE restart.
-;;
+;; 
 ;; Any non-keyword non-integer form is evaluated.
 ")
 
@@ -180,14 +180,14 @@
   (let* ((condition (make-condition 'simple-condition
                                     :format-control "Bar"))
          (hook (lambda (condition stream)
-                 (format stream "~&;;  :FOO               ~A~%" condition)))
+                 (format stream "~% :FOO               ~A" condition)))
          (portable-condition-system::*help-hooks*
            (list hook)))
     (run-debugger-command :help "" condition))
   ";; This is the standard debugger of the Portable Condition System.
 ;; The debugger read-eval-print loop supports the standard REPL variables:
 ;;   *   **   ***   +   ++   +++   /   //   ///   -
-;;
+;; 
 ;; Available debugger commands:
 ;;  :HELP              Show this text.
 ;;  :EVAL <form>       Evaluate a form typed after the :EVAL command.
@@ -196,7 +196,7 @@
 ;;  :RESTARTS          Print available restarts.
 ;;  :RESTART <n>, <n>  Invoke a restart with the given number.
 ;;  :FOO               Bar
-;;
+;; 
 ;; Any non-keyword non-integer form is evaluated.
 ")
 
