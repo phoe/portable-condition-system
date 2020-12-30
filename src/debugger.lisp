@@ -20,7 +20,8 @@ the command itself."))
     (*skip-debugger-prefix*
      (call-next-method))
     (t
-     (let ((stream-out stream))
+     (let* ((stream (or stream (make-two-way-stream (make-concatenated-stream) (make-broadcast-stream))))
+            (stream-out stream))
        (fresh-line stream)
        (pprint-logical-block (stream-out nil :per-line-prefix ";; ")
          ;; Return the value from the next method because

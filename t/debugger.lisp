@@ -57,10 +57,7 @@
 
 (deftest debugger.condition.1
   (eqt (first (portable-condition-system::run-debugger-command
-               :condition
-               ;; Dummy stream that supports both input and output
-               (make-two-way-stream (make-concatenated-stream) (make-broadcast-stream))
-               *debugger.condition*))
+               :condition nil *debugger.condition*))
        *debugger.condition*)
   t)
 
