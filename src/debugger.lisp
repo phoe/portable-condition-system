@@ -11,8 +11,8 @@ was entered with and optional command arguments are available for use within
 the command itself."))
 
 (defvar *skip-debugger-prefix* nil
-  "Whether or not to avoid printing the debugger line prefix when
-  executing a command.")
+  "Whether or not to avoid printing the debugger line prefix when executing a
+command.")
 
 (defmethod run-debugger-command :around (command stream condition &rest arguments)
   "Prefixes each line of output with semicolons unless told not to."
