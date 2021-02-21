@@ -69,6 +69,7 @@
            (:nicknames #:pcs)
            (:import-from #:split-sequence #:split-sequence)
            (:import-from #:alexandria #:parse-body)
+           (:import-from #:closer-mop #:ensure-class-using-class)
            (:shadow ,@symbols)
            (:export ,@symbols))
          (uiop:define-package #:common-lisp+portable-condition-system

@@ -47,17 +47,44 @@ PRINT-OBJECT method defined on the class named by NAME."
     `(let ((,method (find-method #'print-object '() '(,name t) nil)))
        (when ,method (remove-method #'print-object ,method)))))
 
+(defvar *in-define-condition-p* nil
+  "This will be dynamically binded to indicate an entry into DEFINE-CONDITION,
+to distinguish its DEFCLASS from an external DEFCLASS.")
+
+(defmethod ensure-class-using-class :before (class name &rest args &key direct-superclasses &allow-other-keys)
+  "In DEFINE-CONDITION: Signals a TYPE-ERROR at the first direct superclass unconforming
+with DEFINE-CONDITION, that is, the first encountered superclass in DIRECT-SUPERCLASSES
+that is not a subtype of CONDITION.
+In DEFCLASSes external to DEFINE-CONDITION: Signals an INVALID-SUPERCLASS at the first
+encountered superclass that is subtype of CONDITION."
+  (declare (ignore args))
+  (if *in-define-condition-p*
+      (loop :for superclass :in direct-superclasses
+            :do (when (not (subtypep superclass 'condition))
+                  (error 'type-error
+                         :datum superclass
+                         :expected-type 'condition)))
+      (loop :for superclass :in direct-superclasses
+            :do (when (subtypep superclass 'condition)
+                  (error 'invalid-superclass
+                         :class name
+                         :superclass superclass
+                         :reason (format nil "Only ~S should~% define a subtype of ~S"
+                                         'define-condition 'condition))))))
+
 (defun expand-define-condition (name supertypes direct-slots options)
   "Defines a new condition type via DEFCLASS, handling the :REPORT options via
 defining a PRINT-object method on the newly created class."
   (let* ((report-option (find :report options :key #'car))
          (other-options (remove report-option options))
          (supertypes (or supertypes '(condition))))
-    `(progn (defclass ,name ,supertypes ,direct-slots ,@other-options)
-            ,@(if report-option
-                  `(,(expand-define-condition-report-method name report-option))
-                  `(,(expand-define-condition-remove-report-method name)))
-            ',name)))
+    `(progn
+       (let ((*in-define-condition-p* t))
+         (defclass ,name ,supertypes ,direct-slots ,@other-options))
+       ,@(if report-option
+             `(,(expand-define-condition-report-method name report-option))
+             `(,(expand-define-condition-remove-report-method name)))
+       ',name)))
 
 (defmacro define-condition (name (&rest supertypes) direct-slots &rest options)
   "Defines or redefines a condition type."
