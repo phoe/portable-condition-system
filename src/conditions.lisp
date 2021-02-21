@@ -47,12 +47,33 @@ PRINT-OBJECT method defined on the class named by NAME."
     `(let ((,method (find-method #'print-object '() '(,name t) nil)))
        (when ,method (remove-method #'print-object ,method)))))
 
+(defmacro define-condition-internal (name (&rest supertypes) direct-slots &rest options)
+  "Defines a new condition type via DEFCLASS, handling the :REPORT options via
+defining a PRINT-object method on the newly created class.
+This is for internal use, allowing any SUPERTYPES."
+  (let* ((report-option (find :report options :key #'car))
+         (other-options (remove report-option options))
+         (supertypes (or supertypes '(condition))))
+    `(progn (defclass ,name ,supertypes ,direct-slots ,@other-options)
+            ,@(if report-option
+                  `(,(expand-define-condition-report-method name report-option))
+                  `(,(expand-define-condition-remove-report-method name)))
+            ',name)))
+
+(defun coerce-condition-supertypes (supertypes)
+  "Ensures that CONDITION is present in the SUPERTYPES list and that all of SUPERTYPES
+members themselves are subclasses of CONDITION."
+  (let ((only-condition-subtypes (remove-if #'(lambda (x)
+                                                  (not (subtypep x 'condition)))
+                                              supertypes)))
+    (or only-condition-subtypes '(condition))))
+
 (defun expand-define-condition (name supertypes direct-slots options)
   "Defines a new condition type via DEFCLASS, handling the :REPORT options via
 defining a PRINT-object method on the newly created class."
   (let* ((report-option (find :report options :key #'car))
          (other-options (remove report-option options))
-         (supertypes (or supertypes '(condition))))
+         (supertypes (coerce-condition-supertypes supertypes)))
     `(progn (defclass ,name ,supertypes ,direct-slots ,@other-options)
             ,@(if report-option
                   `(,(expand-define-condition-report-method name report-option))
