@@ -579,6 +579,41 @@
   (notnot-mv (typep #'condition-27/s1 'generic-function))
   t)
 
+;;; Test non-CONDITION supertypes
+
+(defclass not-a-condition-1 nil nil)
+(defclass not-a-condition-2 nil nil)
+
+(deftest condition-with-non-condition-supertype-1.1
+    (signals-type-error not-a-condition 'not-a-condition-1
+                        (define-condition condition-with-non-condition-supertype-1a (not-a-condition-1)
+                          ()
+                          (:report "condition-with-non-condition-supertype-1a")))
+  t)
+
+(define-condition-with-tests condition-28a nil nil)
+(define-condition-with-tests condition-28b nil nil)
+
+(deftest condition-with-non-condition-supertype-1.2
+    (signals-type-error not-a-condition 'not-a-condition-1
+                        (define-condition condition-with-non-condition-supertype-1b (condition-28a
+                                                                                     not-a-condition-1
+                                                                                     condition-28b)
+                          ()
+                          (:report "condition-with-non-condition-sypertype-1b")))
+  t)
+
+(deftest condition-with-non-condition-supertype-1.3
+    (signals-type-error not-a-condition 'not-a-condition-2
+                        (define-condition condition-with-non-condition-supertype-1c (condition-28b
+                                                                                     not-a-condition-2
+                                                                                     not-a-condition-1)
+                          ()
+                          (:report "condition-with-non-condition-supertype-1c")))
+  t)
+
+;;;
+
 ;;; Documentation
 
 ;;; Pitman says this should have been in the spec, but it isn't really
