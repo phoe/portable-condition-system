@@ -66,7 +66,6 @@
       `(progn
          (uiop:define-package #:portable-condition-system
            (:use #:common-lisp)
-           (:nicknames #:pcs)
            (:import-from #:split-sequence #:split-sequence)
            (:import-from #:alexandria #:parse-body)
            (:shadow ,@symbols)
