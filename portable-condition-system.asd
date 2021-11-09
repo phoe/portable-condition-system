@@ -9,7 +9,8 @@
   :serial t
   :pathname "src"
   :depends-on (#:alexandria
-               #:split-sequence)
+               #:split-sequence
+               #:closer-mop)
   :components ((:file "package")
                (:file "conditions")
                (:file "condition-hierarchy")
@@ -37,6 +38,7 @@
                (:file "debugger")
                (:file "ansi-test-data")
                (:file "ansi-test-support")
+               (:file "more-tests")
                (:module "ansi-test"
                 :components
                 ((:file "condition")

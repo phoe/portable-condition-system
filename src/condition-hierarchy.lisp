@@ -139,3 +139,17 @@ function ABORT failed to transfer control outside of the function.")
   (:documentation "A condition type signaled when a case assertion
 (such as ECASE, ETYPECASE, CCASE, or CTYPECASE) fails to match its keyform.")
   (:report report-case-failure))
+
+(defun report-invalid-superclass (condition stream)
+  (format stream "~S cannot superclass ~S:~%~S"
+          (invalid-superclass-class condition)
+          (invalid-superclass-superclass condition)
+          (invalid-superclass-reason condition)))
+
+(define-condition invalid-superclass (condition)
+  ((class :reader invalid-superclass-class :initarg :class)
+   (superclass :reader invalid-superclass-superclass :initarg :superclass)
+   (reason :reader invalid-superclass-reason :initarg :reason))
+  (:documentation "A condition type signaled when a class tries to superclass an
+invalid superclass; the violation being described by REASON.")
+  (:report report-invalid-superclass))
